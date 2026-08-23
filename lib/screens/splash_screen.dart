@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'login_screen.dart';
+import 'signup_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -15,13 +15,13 @@ class _SplashScreenState extends State<SplashScreen> {
     super.initState();
 
     // After 3 seconds, move to the next screen.
-   Timer(const Duration(seconds: 3), () {
+ Timer(const Duration(seconds: 3), () {
   if (!mounted) return;
 
   Navigator.pushReplacement(
     context,
     MaterialPageRoute(
-      builder: (_) => const LoginScreen(),
+      builder: (context) => const SignupScreen(),
     ),
   );
 });
