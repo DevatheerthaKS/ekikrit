@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'projects_screen.dart';
 import 'create_project_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -219,91 +221,144 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // STATISTICS
   // ============================================================
 
-  Widget _buildStatistics() {
-    return Column(
-      children: [
+Widget _buildStatistics() {
+  return StreamBuilder<QuerySnapshot>(
+    stream: FirebaseFirestore.instance
+        .collection("projects")
+        .snapshots(),
 
-        Row(
-          children: [
+    builder: (context, snapshot) {
 
-            Expanded(
-              child: _buildStatCard(
-                title: "Total Projects",
-                value: "124",
-                icon: Icons.folder_copy_outlined,
-                iconColor: primaryColor,
+      // While loading
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Center(
+          child: Padding(
+            padding: EdgeInsets.all(20),
+            child: CircularProgressIndicator(),
+          ),
+        );
+      }
+
+      // If there is an error
+      if (snapshot.hasError) {
+        return const Center(
+          child: Text("Unable to load project statistics"),
+        );
+      }
+
+      // Get all projects
+      final projects = snapshot.data?.docs ?? [];
+
+      // Total projects
+      final totalProjects = projects.length;
+
+      // Ongoing projects
+      final ongoingProjects = projects.where((project) {
+        final data = project.data() as Map<String, dynamic>;
+
+        return data["status"] == "Ongoing";
+      }).length;
+
+      // Completed projects
+      final completedProjects = projects.where((project) {
+        final data = project.data() as Map<String, dynamic>;
+
+        return data["status"] == "Completed";
+      }).length;
+
+      // Delayed projects
+      final delayedProjects = projects.where((project) {
+        final data = project.data() as Map<String, dynamic>;
+
+        return data["status"] == "Delayed";
+      }).length;
+
+      return Column(
+        children: [
+
+          Row(
+            children: [
+
+              Expanded(
+                child: _buildStatCard(
+                  title: "Total Projects",
+                  value: totalProjects.toString(),
+                  icon: Icons.folder_copy_outlined,
+                  iconColor: primaryColor,
+                ),
               ),
-            ),
 
-            const SizedBox(width: 9),
+              const SizedBox(width: 9),
 
-            Expanded(
-              child: _buildStatCard(
-                title: "Ongoing",
-                value: "42",
-                icon: Icons.autorenew,
-                iconColor: Colors.blue,
+              Expanded(
+                child: _buildStatCard(
+                  title: "Ongoing",
+                  value: ongoingProjects.toString(),
+                  icon: Icons.autorenew,
+                  iconColor: Colors.blue,
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
 
-        const SizedBox(height: 9),
+          const SizedBox(height: 9),
 
-        Row(
-          children: [
+          Row(
+            children: [
 
-            Expanded(
-              child: _buildStatCard(
-                title: "Completed",
-                value: "68",
-                icon: Icons.check_circle_outline,
-                iconColor: Colors.green,
+              Expanded(
+                child: _buildStatCard(
+                  title: "Completed",
+                  value: completedProjects.toString(),
+                  icon: Icons.check_circle_outline,
+                  iconColor: Colors.green,
+                ),
               ),
-            ),
 
-            const SizedBox(width: 9),
+              const SizedBox(width: 9),
 
-            Expanded(
-              child: _buildStatCard(
-                title: "Delayed",
-                value: "14",
-                icon: Icons.warning_amber_outlined,
-                iconColor: Colors.red,
+              Expanded(
+                child: _buildStatCard(
+                  title: "Delayed",
+                  value: delayedProjects.toString(),
+                  icon: Icons.warning_amber_outlined,
+                  iconColor: Colors.red,
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
 
-        const SizedBox(height: 9),
+          const SizedBox(height: 9),
 
-        Row(
-          children: [
+          Row(
+            children: [
 
-            Expanded(
-              child: _buildStatCard(
-                title: "Pending Approval",
-                value: "08",
-                icon: Icons.pending_actions,
-                iconColor: Colors.orange,
+              Expanded(
+                child: _buildStatCard(
+                  title: "Pending Approval",
+                  value: "0",
+                  icon: Icons.pending_actions,
+                  iconColor: Colors.orange,
+                ),
               ),
-            ),
 
-            const SizedBox(width: 9),
+              const SizedBox(width: 9),
 
-            Expanded(
-              child: _buildStatCard(
-                title: "Budget Utilization",
-                value: "72%",
-                icon: Icons.account_balance_wallet_outlined,
-                iconColor: primaryColor,
+              Expanded(
+                child: _buildStatCard(
+                  title: "Budget Utilization",
+                  value: "0%",
+                  icon: Icons.account_balance_wallet_outlined,
+                  iconColor: primaryColor,
+                ),
               ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
+            ],
+          ),
+        ],
+      );
+    },
+  );
+}
 
   Widget _buildStatCard({
     required String title,
