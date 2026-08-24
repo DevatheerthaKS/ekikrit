@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'create_project_screen.dart';
 import 'dashboard_screen.dart';
+import 'map_screen.dart';
 
 class ProjectsScreen extends StatefulWidget {
   const ProjectsScreen({super.key});
@@ -1551,19 +1552,17 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
         }
 
         // Map
-        else if (index == 2) {
+       // Map
+else if (index == 2) {
 
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) =>
-                  const PlaceholderPage(
-                title: "Map",
-                icon: Icons.map,
-              ),
-            ),
-          );
-        }
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) =>
+          const MapScreen(),
+    ),
+  );
+}
 
         // Profile
         else if (index == 3) {
