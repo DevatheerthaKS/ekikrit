@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'projects_screen.dart';
-
+import 'create_project_screen.dart';
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -762,11 +762,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
 
           Expanded(
-            child: _buildQuickAction(
-              Icons.add_circle_outline,
-              "Add Project",
-            ),
-          ),
+  child: InkWell(
+    onTap: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              const CreateProjectScreen(),
+        ),
+      );
+    },
+    child: _buildQuickAction(
+      Icons.add_circle_outline,
+      "Add Project",
+    ),
+  ),
+),
 
           Expanded(
             child: _buildQuickAction(
@@ -794,46 +805,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildQuickAction(
-    IconData icon,
-    String title,
-  ) {
-    return InkWell(
-      onTap: () {},
-
-      borderRadius: BorderRadius.circular(10),
-
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          vertical: 7,
+  IconData icon,
+  String title,
+) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(
+      vertical: 7,
+    ),
+    child: Column(
+      children: [
+        Icon(
+          icon,
+          color: Colors.white,
+          size: 20,
         ),
 
-        child: Column(
-          children: [
+        const SizedBox(height: 5),
 
-            Icon(
-              icon,
-              color: Colors.white,
-              size: 20,
-            ),
-
-            const SizedBox(height: 5),
-
-            Text(
-              title,
-
-              textAlign: TextAlign.center,
-
-              style: const TextStyle(
-                fontSize: 7.5,
-                color: Colors.white,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 7.5,
+            color: Colors.white,
+            fontWeight: FontWeight.w500,
+          ),
         ),
-      ),
-    );
-  }
+      ],
+    ),
+  );
+}
 
   // ============================================================
   // LIVE PROJECT MAP
@@ -1087,7 +1088,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
      onTap: (index) {
   if (index == 1) {
-    Navigator.push(
+    Navigator.pushReplacement(
       context,
       MaterialPageRoute(
         builder: (_) => const ProjectsScreen(),

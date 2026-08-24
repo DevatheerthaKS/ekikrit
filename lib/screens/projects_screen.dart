@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'create_project_screen.dart';
 import 'dashboard_screen.dart';
+
 class ProjectsScreen extends StatefulWidget {
   const ProjectsScreen({super.key});
 
@@ -11,54 +14,36 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
   final Color primaryColor = const Color(0xFF087F78);
 
   String selectedFilter = "All";
+  String searchText = "";
 
-  final List<Project> projects = [
-    Project(
-      title: "Ward 4 Road Resurfacing",
-      department: "PUBLIC WORKS DEPARTMENT",
-      status: "Ongoing",
-      progress: 65,
-      budget: "₹72.5L",
-      location: "Ward 4",
-      startDate: "4 Aug 2023",
-    ),
-    Project(
-      title: "Main Sewer Line Extension",
-      department: "WATER & SANITATION",
-      status: "Completed",
-      progress: 100,
-      budget: "₹58.2L",
-      location: "Ward 6",
-      startDate: "04 Jun 2023",
-    ),
-    Project(
-      title: "Smart Street Lighting Phase II",
-      department: "ELECTRICITY DEPT.",
-      status: "Delayed",
-      progress: 72,
-      budget: "₹36.8L",
-      location: "Ward 7",
-      startDate: "20 Sep 2023",
-    ),
-    Project(
-      title: "New Primary Healthcare Center",
-      department: "HEALTH & FAMILY",
-      status: "Ongoing",
-      progress: 42,
-      budget: "₹92.4L",
-      location: "Ward 2",
-      startDate: "14 Jun 2023",
-    ),
+  final TextEditingController searchController =
+      TextEditingController();
+
+  // ============================================================
+  // FILTERS
+  // ============================================================
+
+  final List<String> filters = [
+    "All",
+    "Roads",
+    "Water Supply",
+    "Drainage",
+    "Buildings",
+    "Street Lighting",
   ];
 
   @override
-  Widget build(BuildContext context) {
-    final filteredProjects = selectedFilter == "All"
-        ? projects
-        : projects
-            .where((project) => project.status == selectedFilter)
-            .toList();
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
+  }
 
+  // ============================================================
+  // BUILD
+  // ============================================================
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F8FC),
 
@@ -66,88 +51,108 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
         child: Column(
           children: [
 
-            // ======================================================
+            // ====================================================
             // HEADER
-            // ======================================================
+            // ====================================================
 
             _buildHeader(),
 
-            // ======================================================
-            // SEARCH
-            // ======================================================
+            // ====================================================
+            // SEARCH BAR
+            // ====================================================
 
             Padding(
               padding: const EdgeInsets.fromLTRB(
-                10,
-                8,
-                10,
-                7,
+                16,
+                16,
+                16,
+                12,
               ),
-
               child: Row(
                 children: [
 
                   Expanded(
                     child: Container(
-                      height: 34,
+                      height: 56,
 
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius:
+                            BorderRadius.circular(18),
+
                         border: Border.all(
-                          color: const Color(0xFFD9E0E4),
+                          color: const Color(0xFFD5DADC),
                         ),
                       ),
 
-                      child: const TextField(
-                        style: TextStyle(
-                          fontSize: 10,
+                      child: TextField(
+                        controller: searchController,
+
+                        onChanged: (value) {
+                          setState(() {
+                            searchText = value.toLowerCase();
+                          });
+                        },
+
+                        style: const TextStyle(
+                          fontSize: 17,
+                          color: Color(0xFF263746),
                         ),
 
-                        decoration: InputDecoration(
-                          hintText: "Search projects...",
+                        decoration: const InputDecoration(
+                          hintText:
+                              "Search projects...",
+
                           hintStyle: TextStyle(
-                            fontSize: 9,
-                            color: Color(0xFF89939A),
+                            fontSize: 17,
+                            color: Color(0xFF7C8790),
                           ),
 
                           prefixIcon: Icon(
                             Icons.search,
-                            size: 15,
-                            color: Color(0xFF89939A),
+                            size: 28,
+                            color: Color(0xFF68747A),
                           ),
 
                           border: InputBorder.none,
 
-                          contentPadding: EdgeInsets.symmetric(
-                            vertical: 9,
+                          contentPadding:
+                              EdgeInsets.symmetric(
+                            vertical: 15,
                           ),
                         ),
                       ),
                     ),
                   ),
 
-                  const SizedBox(width: 7),
+                  const SizedBox(width: 10),
+
+                  // Filter button
 
                   Container(
-                    width: 34,
-                    height: 34,
+                    width: 56,
+                    height: 56,
 
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius:
+                          BorderRadius.circular(18),
+
                       border: Border.all(
-                        color: const Color(0xFFD9E0E4),
+                        color:
+                            const Color(0xFFD5DADC),
                       ),
                     ),
 
                     child: IconButton(
-                      padding: EdgeInsets.zero,
-                      onPressed: () {},
-                      icon: const Icon(
+                      onPressed: () {
+                        _showFilterDialog();
+                      },
+
+                      icon: Icon(
                         Icons.tune,
-                        size: 16,
-                        color: Color(0xFF087F78),
+                        size: 27,
+                        color: primaryColor,
                       ),
                     ),
                   ),
@@ -155,22 +160,22 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
               ),
             ),
 
-            // ======================================================
-            // FILTERS
-            // ======================================================
+            // ====================================================
+            // CATEGORY FILTERS
+            // ====================================================
 
             _buildFilters(),
 
-            // ======================================================
-            // TITLE
-            // ======================================================
+            // ====================================================
+            // ACTIVE PROJECTS TITLE
+            // ====================================================
 
             Padding(
               padding: const EdgeInsets.fromLTRB(
-                10,
-                10,
-                10,
-                7,
+                30,
+                24,
+                20,
+                14,
               ),
 
               child: Align(
@@ -178,93 +183,228 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
 
                 child: Text(
                   "Active Projects",
+
                   style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w500,
                     color: Color(0xFF172B3A),
                   ),
                 ),
               ),
             ),
 
-            // ======================================================
-            // PROJECT LIST
-            // ======================================================
+            // ====================================================
+            // FIRESTORE PROJECT LIST
+            // ====================================================
 
             Expanded(
-              child: filteredProjects.isEmpty
-                  ? _buildEmptyState()
-                  : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(
-                        10,
-                        0,
-                        10,
-                        70,
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection("projects")
+                    .snapshots(),
+
+                builder: (context, snapshot) {
+
+                  // Loading
+
+                  if (snapshot.connectionState ==
+                      ConnectionState.waiting) {
+                    return Center(
+                      child: CircularProgressIndicator(
+                        color: primaryColor,
                       ),
+                    );
+                  }
 
-                      physics: const BouncingScrollPhysics(),
+                  // Error
 
-                      itemCount: filteredProjects.length,
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Text(
+                        "Error loading projects",
+                        style: TextStyle(
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                    );
+                  }
 
-                      itemBuilder: (context, index) {
-                        return _buildProjectCard(
-                          filteredProjects[index],
-                        );
-                      },
+                  // Empty
+
+                  if (!snapshot.hasData ||
+                      snapshot.data!.docs.isEmpty) {
+                    return _buildEmptyState();
+                  }
+
+                  // Convert Firestore documents
+
+                  List<Project> projects =
+                      snapshot.data!.docs.map((doc) {
+
+                    final data =
+                        doc.data()
+                            as Map<String, dynamic>;
+
+                    return Project(
+                      id: doc.id,
+
+                      title:
+                          data["title"] ?? "",
+
+                      department:
+                          data["department"] ?? "",
+
+                      category:
+                          data["category"] ?? "",
+
+                      status:
+                          data["status"] ?? "Ongoing",
+
+                      budget:
+                          data["budget"] ?? "",
+
+                      location:
+                          data["location"] ?? "",
+
+                      startDate:
+                          data["startDate"] ?? "",
+                    );
+                  }).toList();
+
+                  // ==================================================
+                  // CATEGORY FILTER
+                  // ==================================================
+
+     if (selectedFilter != "All") {
+  projects = projects.where((project) {
+    return project.category.trim().toLowerCase() ==
+        selectedFilter.trim().toLowerCase();
+  }).toList();
+}
+
+                  // ==================================================
+                  // SEARCH FILTER
+                  // ==================================================
+
+                  if (searchText.isNotEmpty) {
+
+                    projects =
+                        projects.where((project) {
+
+                      return project.title
+                              .toLowerCase()
+                              .contains(searchText) ||
+
+                          project.department
+                              .toLowerCase()
+                              .contains(searchText) ||
+
+                          project.location
+                              .toLowerCase()
+                              .contains(searchText) ||
+
+                          project.category
+                              .toLowerCase()
+                              .contains(searchText);
+
+                    }).toList();
+                  }
+
+                  // No matching project
+
+                  if (projects.isEmpty) {
+                    return _buildNoResults();
+                  }
+
+                  // ==================================================
+                  // LIST
+                  // ==================================================
+
+                  return ListView.builder(
+
+                    padding:
+                        const EdgeInsets.fromLTRB(
+                      28,
+                      0,
+                      28,
+                      100,
                     ),
+
+                    itemCount: projects.length,
+
+                    itemBuilder:
+                        (context, index) {
+
+                      return _buildProjectCard(
+                        projects[index],
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ],
         ),
       ),
 
-      // ============================================================
-      // ADD PROJECT BUTTON
-      // ============================================================
+      // ==========================================================
+      // FLOATING ADD BUTTON
+      // ==========================================================
 
-      floatingActionButton: FloatingActionButton(
-        mini: true,
+      floatingActionButton:
+          FloatingActionButton(
 
         backgroundColor: primaryColor,
 
-        elevation: 4,
+        elevation: 5,
 
         onPressed: () {
-          _showAddProjectMessage();
+
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  const CreateProjectScreen(),
+            ),
+          );
         },
 
         child: const Icon(
           Icons.add,
           color: Colors.white,
-          size: 20,
+          size: 30,
         ),
       ),
 
-      // ============================================================
+      // ==========================================================
       // BOTTOM NAVIGATION
-      // ============================================================
+      // ==========================================================
 
-      bottomNavigationBar: _buildBottomNavigationBar(),
+      bottomNavigationBar:
+          _buildBottomNavigationBar(),
     );
   }
 
-  // ==============================================================
+  // ============================================================
   // HEADER
-  // ==============================================================
+  // ============================================================
 
   Widget _buildHeader() {
-    return Container(
-      height: 47,
 
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
+    return Container(
+      height: 72,
+
+      padding:
+          const EdgeInsets.symmetric(
+        horizontal: 28,
       ),
 
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: Color(0xFFE9F0FF),
 
         border: Border(
           bottom: BorderSide(
-            color: Color(0xFFE2E7EA),
+            color: Color(0xFFE0E5EA),
           ),
         ),
       ),
@@ -272,49 +412,59 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
       child: Row(
         children: [
 
-          Container(
-            width: 25,
-            height: 25,
-
-            decoration: BoxDecoration(
-              color: primaryColor,
-              borderRadius: BorderRadius.circular(6),
-            ),
-
-            child: const Icon(
-              Icons.account_balance,
-              color: Colors.white,
-              size: 14,
-            ),
-          ),
-
-          const SizedBox(width: 7),
-
-          const Expanded(
-            child: Text(
-              "Ekikrit",
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF17303D),
-              ),
-            ),
-          ),
+          // Menu
 
           IconButton(
             padding: EdgeInsets.zero,
 
-            constraints: const BoxConstraints(
-              minWidth: 30,
-              minHeight: 30,
+            constraints:
+                const BoxConstraints(),
+
+            onPressed: () {
+              Scaffold.of(context).openDrawer();
+            },
+
+            icon: Icon(
+              Icons.menu,
+              size: 30,
+              color: primaryColor,
             ),
+          ),
 
-            onPressed: () {},
+          const SizedBox(width: 18),
 
-            icon: const Icon(
+          // Logo / Name
+
+          const Text(
+            "Ekikrit",
+
+            style: TextStyle(
+              fontSize: 38,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF00695F),
+            ),
+          ),
+
+          const Spacer(),
+
+          // Notification
+
+          IconButton(
+            onPressed: () {
+
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(
+                const SnackBar(
+                  content:
+                      Text("No new notifications"),
+                ),
+              );
+            },
+
+            icon: Icon(
               Icons.notifications_none,
-              size: 17,
-              color: Color(0xFF5E6B73),
+              size: 31,
+              color: primaryColor,
             ),
           ),
         ],
@@ -322,78 +472,94 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     );
   }
 
-  // ==============================================================
+  // ============================================================
   // FILTERS
-  // ==============================================================
+  // ============================================================
 
   Widget _buildFilters() {
-    final filters = [
-      "All",
-      "Ongoing",
-      "Completed",
-      "Delayed",
-    ];
 
     return SizedBox(
-      height: 28,
+      height: 54,
 
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 10,
+
+        padding:
+            const EdgeInsets.symmetric(
+          horizontal: 28,
         ),
 
-        scrollDirection: Axis.horizontal,
+        scrollDirection:
+            Axis.horizontal,
 
         itemCount: filters.length,
 
-        separatorBuilder: (_, __) =>
-            const SizedBox(width: 6),
+        separatorBuilder:
+            (_, __) =>
+                const SizedBox(width: 10),
 
-        itemBuilder: (context, index) {
-          final filter = filters[index];
+        itemBuilder:
+            (context, index) {
+
+          final filter =
+              filters[index];
 
           final bool selected =
               selectedFilter == filter;
 
           return GestureDetector(
+
             onTap: () {
+
               setState(() {
                 selectedFilter = filter;
               });
             },
 
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
+
+              padding:
+                  const EdgeInsets.symmetric(
+                horizontal: 28,
               ),
 
-              alignment: Alignment.center,
+              alignment:
+                  Alignment.center,
 
-              decoration: BoxDecoration(
+              decoration:
+                  BoxDecoration(
+
                 color: selected
                     ? primaryColor
-                    : Colors.white,
+                    : const Color(0xFFF1F5FC),
 
-                borderRadius: BorderRadius.circular(14),
+                borderRadius:
+                    BorderRadius.circular(30),
 
                 border: Border.all(
                   color: selected
                       ? primaryColor
-                      : const Color(0xFFD6DEE2),
+                      : const Color(
+                          0xFFBEC8D0,
+                        ),
                 ),
               ),
 
               child: Text(
+
                 filter,
 
                 style: TextStyle(
-                  fontSize: 8.5,
 
-                  fontWeight: FontWeight.w500,
+                  fontSize: 16,
+
+                  fontWeight:
+                      FontWeight.w500,
 
                   color: selected
                       ? Colors.white
-                      : const Color(0xFF56636B),
+                      : const Color(
+                          0xFF4F5A60,
+                        ),
                 ),
               ),
             ),
@@ -403,61 +569,81 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     );
   }
 
-  // ==============================================================
+  // ============================================================
   // PROJECT CARD
-  // ==============================================================
+  // ============================================================
 
-  Widget _buildProjectCard(Project project) {
-    Color statusColor;
+  Widget _buildProjectCard(
+      Project project) {
 
-    if (project.status == "Completed") {
-      statusColor = const Color(0xFF3DA66A);
-    } else if (project.status == "Delayed") {
-      statusColor = const Color(0xFFD9534F);
-    } else {
-      statusColor = const Color(0xFF2688D1);
-    }
+    final statusColors =
+        _getStatusColors(
+      project.status,
+    );
 
     return GestureDetector(
+
       onTap: () {
         _showProjectDetails(project);
       },
 
       child: Container(
-        margin: const EdgeInsets.only(
-          bottom: 9,
+
+        margin:
+            const EdgeInsets.only(
+          bottom: 18,
         ),
 
-        padding: const EdgeInsets.all(10),
+        padding:
+            const EdgeInsets.fromLTRB(
+          22,
+          22,
+          22,
+          18,
+        ),
 
-        decoration: BoxDecoration(
+        decoration:
+            BoxDecoration(
+
           color: Colors.white,
 
-          borderRadius: BorderRadius.circular(10),
+          borderRadius:
+              BorderRadius.circular(20),
 
           border: Border.all(
-            color: const Color(0xFFDDE3E6),
+            color:
+                const Color(0xFFE5E8EA),
           ),
 
           boxShadow: [
+
             BoxShadow(
-              color: Colors.black.withOpacity(.025),
-              blurRadius: 5,
-              offset: const Offset(0, 2),
+              color:
+                  Colors.black.withOpacity(
+                .035,
+              ),
+
+              blurRadius: 8,
+
+              offset:
+                  const Offset(0, 3),
             ),
           ],
         ),
 
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
 
           children: [
 
-            // ------------------------------------------------------
+            // ==================================================
             // TITLE + STATUS
-            // ------------------------------------------------------
+            // ==================================================
 
             Row(
+
               crossAxisAlignment:
                   CrossAxisAlignment.start,
 
@@ -465,93 +651,136 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
 
                 Expanded(
                   child: Column(
+
                     crossAxisAlignment:
                         CrossAxisAlignment.start,
 
                     children: [
 
                       Text(
+
                         project.title,
 
-                        maxLines: 1,
+                        maxLines: 2,
 
                         overflow:
                             TextOverflow.ellipsis,
 
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF1D303C),
+                        style:
+                            const TextStyle(
+
+                          fontSize: 25,
+
+                          fontWeight:
+                              FontWeight.w500,
+
+                          color:
+                              Color(0xFF172B3A),
                         ),
                       ),
 
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 6),
 
                       Text(
-                        project.department,
 
-                        style: const TextStyle(
-                          fontSize: 6.5,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: .15,
-                          color: Color(0xFF7A858C),
+                        project.department
+                            .toUpperCase(),
+
+                        style:
+                            const TextStyle(
+
+                          fontSize: 15,
+
+                          fontWeight:
+                              FontWeight.w500,
+
+                          letterSpacing:
+                              0.8,
+
+                          color:
+                              Color(0xFF4F5A60),
                         ),
                       ),
                     ],
                   ),
                 ),
 
-                const SizedBox(width: 5),
+                const SizedBox(width: 10),
+
+                // Status badge
 
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 3,
+
+                  padding:
+                      const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 8,
                   ),
 
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(.10),
+                  decoration:
+                      BoxDecoration(
+
+                    color:
+                        statusColors.background,
 
                     borderRadius:
-                        BorderRadius.circular(8),
+                        BorderRadius.circular(
+                      25,
+                    ),
                   ),
 
                   child: Text(
+
                     project.status,
 
                     style: TextStyle(
-                      fontSize: 6.5,
-                      fontWeight: FontWeight.w600,
-                      color: statusColor,
+
+                      fontSize: 15,
+
+                      fontWeight:
+                          FontWeight.w600,
+
+                      color:
+                          statusColors.text,
                     ),
                   ),
                 ),
               ],
             ),
 
-            const SizedBox(height: 9),
+            const SizedBox(height: 26),
 
-            // ------------------------------------------------------
+            // ==================================================
             // LOCATION + BUDGET
-            // ------------------------------------------------------
+            // ==================================================
 
             Row(
               children: [
 
                 const Icon(
                   Icons.location_on_outlined,
-                  size: 11,
-                  color: Color(0xFF7B858B),
+                  size: 23,
+                  color: Color(0xFF56636A),
                 ),
 
-                const SizedBox(width: 3),
+                const SizedBox(width: 6),
 
-                Text(
-                  project.location,
+                Expanded(
+                  child: Text(
 
-                  style: const TextStyle(
-                    fontSize: 7,
-                    color: Color(0xFF69757C),
+                    project.location,
+
+                    style:
+                        const TextStyle(
+
+                      fontSize: 17,
+
+                      fontWeight:
+                          FontWeight.w500,
+
+                      color:
+                          Color(0xFF4D575C),
+                    ),
                   ),
                 ),
 
@@ -559,102 +788,109 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
 
                 const Icon(
                   Icons.account_balance_wallet_outlined,
-                  size: 11,
-                  color: Color(0xFF7B858B),
+                  size: 22,
+                  color: Color(0xFF56636A),
                 ),
 
-                const SizedBox(width: 3),
+                const SizedBox(width: 6),
 
                 Text(
+
                   project.budget,
 
-                  style: const TextStyle(
-                    fontSize: 7,
-                    color: Color(0xFF69757C),
+                  style:
+                      const TextStyle(
+
+                    fontSize: 17,
+
+                    fontWeight:
+                        FontWeight.w500,
+
+                    color:
+                        Color(0xFF4D575C),
                   ),
                 ),
               ],
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 20),
 
-            // ------------------------------------------------------
-            // COMPLETION
-            // ------------------------------------------------------
+            // ==================================================
+            // CATEGORY
+            // ==================================================
 
-            Row(
-              mainAxisAlignment:
-                  MainAxisAlignment.spaceBetween,
+            if (project.category.isNotEmpty)
+              Row(
+                children: [
 
-              children: [
-
-                const Text(
-                  "Completion",
-
-                  style: TextStyle(
-                    fontSize: 6.5,
-                    color: Color(0xFF737E85),
+                  const Icon(
+                    Icons.category_outlined,
+                    size: 21,
+                    color: Color(0xFF56636A),
                   ),
-                ),
 
-                Text(
-                  "${project.progress}%",
+                  const SizedBox(width: 7),
 
-                  style: TextStyle(
-                    fontSize: 6.5,
-                    fontWeight: FontWeight.w600,
-                    color: statusColor,
+                  Text(
+                    project.category,
+
+                    style:
+                        const TextStyle(
+
+                      fontSize: 16,
+
+                      color:
+                          Color(0xFF59646A),
+                    ),
                   ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 4),
-
-            // Progress bar
-            ClipRRect(
-              borderRadius:
-                  BorderRadius.circular(10),
-
-              child: LinearProgressIndicator(
-                value: project.progress / 100,
-
-                minHeight: 3,
-
-                backgroundColor:
-                    const Color(0xFFE5EAEC),
-
-                valueColor:
-                    AlwaysStoppedAnimation<Color>(
-                  statusColor,
-                ),
+                ],
               ),
+
+            const SizedBox(height: 20),
+
+            // ==================================================
+            // DIVIDER
+            // ==================================================
+
+            Container(
+              height: 1,
+              color:
+                  const Color(0xFFD3D9DC),
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
 
-            // ------------------------------------------------------
+            // ==================================================
             // START DATE + ARROW
-            // ------------------------------------------------------
+            // ==================================================
 
             Row(
+
               mainAxisAlignment:
                   MainAxisAlignment.spaceBetween,
 
               children: [
 
                 Text(
+
                   "Started: ${project.startDate}",
 
-                  style: const TextStyle(
-                    fontSize: 6.5,
-                    color: Color(0xFF8A949A),
+                  style:
+                      const TextStyle(
+
+                    fontSize: 16,
+
+                    fontWeight:
+                        FontWeight.w500,
+
+                    color:
+                        Color(0xFF59646A),
                   ),
                 ),
 
                 Icon(
                   Icons.arrow_forward,
-                  size: 14,
+                  size: 28,
                   color: primaryColor,
                 ),
               ],
@@ -665,212 +901,213 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     );
   }
 
-  // ==============================================================
-  // EMPTY STATE
-  // ==============================================================
+  // ============================================================
+  // STATUS COLORS
+  // ============================================================
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment:
-            MainAxisAlignment.center,
+  StatusColors _getStatusColors(
+      String status) {
 
-        children: [
+    if (status == "Completed") {
 
-          Icon(
-            Icons.folder_open_outlined,
-            size: 45,
-            color: primaryColor,
-          ),
+      return StatusColors(
+        text: const Color(0xFF187A3D),
+        background:
+            const Color(0xFFD9F7E5),
+      );
+    }
 
-          const SizedBox(height: 10),
+    if (status == "Delayed") {
 
-          const Text(
-            "No projects found",
+      return StatusColors(
+        text: const Color(0xFFC51E1E),
+        background:
+            const Color(0xFFFFDAD7),
+      );
+    }
 
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF263746),
-            ),
-          ),
+    if (status == "Critical") {
 
-          const SizedBox(height: 5),
+      return StatusColors(
+        text: const Color(0xFFC51E1E),
+        background:
+            const Color(0xFFFFDAD7),
+      );
+    }
 
-          const Text(
-            "Try another filter.",
+    // Ongoing
 
-            style: TextStyle(
-              fontSize: 10,
-              color: Color(0xFF7A858C),
-            ),
-          ),
-        ],
-      ),
+    return StatusColors(
+      text: const Color(0xFFFFFFFF),
+      background:
+          const Color(0xFF326BF2),
     );
   }
 
-  // ==============================================================
-  // BOTTOM NAVIGATION
-  // ==============================================================
-
-  Widget _buildBottomNavigationBar() {
-    return BottomNavigationBar(
-      type: BottomNavigationBarType.fixed,
-
-      currentIndex: 1,
-
-      selectedItemColor: primaryColor,
-
-      unselectedItemColor:
-          const Color(0xFF8A949A),
-
-      selectedFontSize: 7,
-
-      unselectedFontSize: 7,
-
-      elevation: 10,
-
-      backgroundColor: Colors.white,
-
-      items: const [
-
-        BottomNavigationBarItem(
-          icon: Icon(
-            Icons.home_outlined,
-            size: 17,
-          ),
-          activeIcon: Icon(
-            Icons.home,
-            size: 17,
-          ),
-          label: "Home",
-        ),
-
-        BottomNavigationBarItem(
-          icon: Icon(
-            Icons.folder_outlined,
-            size: 17,
-          ),
-          activeIcon: Icon(
-            Icons.folder,
-            size: 17,
-          ),
-          label: "Projects",
-        ),
-
-        BottomNavigationBarItem(
-          icon: Icon(
-            Icons.map_outlined,
-            size: 17,
-          ),
-          activeIcon: Icon(
-            Icons.map,
-            size: 17,
-          ),
-          label: "Map",
-        ),
-
-        BottomNavigationBarItem(
-          icon: Icon(
-            Icons.person_outline,
-            size: 17,
-          ),
-          activeIcon: Icon(
-            Icons.person,
-            size: 17,
-          ),
-          label: "Profile",
-        ),
-      ],
-
-     onTap: (index) {
-  if (index == 0) {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const DashboardScreen(),
-      ),
-    );
-  }
-},
-    );
-  }
-
-  // ==============================================================
+  // ============================================================
   // PROJECT DETAILS
-  // ==============================================================
+  // ============================================================
 
-  void _showProjectDetails(Project project) {
+  void _showProjectDetails(
+      Project project) {
+
+    final statusColors =
+        _getStatusColors(
+      project.status,
+    );
+
     showModalBottomSheet(
+
       context: context,
 
       isScrollControlled: true,
 
-      backgroundColor: Colors.transparent,
+      backgroundColor:
+          Colors.transparent,
 
       builder: (context) {
+
         return Container(
-          padding: const EdgeInsets.fromLTRB(
-            18,
-            15,
-            18,
-            25,
+
+          padding:
+              const EdgeInsets.fromLTRB(
+            24,
+            14,
+            24,
+            30,
           ),
 
-          decoration: const BoxDecoration(
+          decoration:
+              const BoxDecoration(
+
             color: Colors.white,
 
-            borderRadius: BorderRadius.vertical(
-              top: Radius.circular(22),
+            borderRadius:
+                BorderRadius.vertical(
+              top: Radius.circular(28),
             ),
           ),
 
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+
+            mainAxisSize:
+                MainAxisSize.min,
 
             crossAxisAlignment:
                 CrossAxisAlignment.start,
 
             children: [
 
+              // Handle
+
               Center(
                 child: Container(
-                  width: 35,
-                  height: 4,
+                  width: 45,
+                  height: 5,
 
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFD5DBDE),
+                  decoration:
+                      BoxDecoration(
+
+                    color:
+                        const Color(
+                      0xFFD5DBDE,
+                    ),
+
                     borderRadius:
-                        BorderRadius.circular(5),
+                        BorderRadius.circular(
+                      10,
+                    ),
                   ),
                 ),
               ),
 
-              const SizedBox(height: 18),
+              const SizedBox(height: 22),
 
-              Text(
-                project.title,
+              // Title
 
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF172B3A),
-                ),
+              Row(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+
+                children: [
+
+                  Expanded(
+                    child: Text(
+
+                      project.title,
+
+                      style:
+                          const TextStyle(
+
+                        fontSize: 25,
+
+                        fontWeight:
+                            FontWeight.w600,
+
+                        color:
+                            Color(0xFF172B3A),
+                      ),
+                    ),
+                  ),
+
+                  Container(
+
+                    padding:
+                        const EdgeInsets.symmetric(
+                      horizontal: 15,
+                      vertical: 7,
+                    ),
+
+                    decoration:
+                        BoxDecoration(
+
+                      color:
+                          statusColors.background,
+
+                      borderRadius:
+                          BorderRadius.circular(
+                        20,
+                      ),
+                    ),
+
+                    child: Text(
+
+                      project.status,
+
+                      style: TextStyle(
+                        color:
+                            statusColors.text,
+                        fontWeight:
+                            FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
 
-              const SizedBox(height: 5),
+              const SizedBox(height: 8),
 
               Text(
+
                 project.department,
 
-                style: const TextStyle(
-                  fontSize: 9,
-                  color: Color(0xFF78848B),
+                style:
+                    const TextStyle(
+
+                  fontSize: 15,
+
+                  color:
+                      Color(0xFF727D83),
                 ),
               ),
 
-              const SizedBox(height: 18),
+              const SizedBox(height: 25),
+
+              _detailRow(
+                Icons.category_outlined,
+                "Category",
+                project.category,
+              ),
 
               _detailRow(
                 Icons.location_on_outlined,
@@ -886,50 +1123,49 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
 
               _detailRow(
                 Icons.calendar_today_outlined,
-                "Started",
+                "Start Date",
                 project.startDate,
-              ),
-
-              _detailRow(
-                Icons.trending_up,
-                "Progress",
-                "${project.progress}%",
-              ),
-
-              _detailRow(
-                Icons.info_outline,
-                "Status",
-                project.status,
               ),
 
               const SizedBox(height: 10),
 
               SizedBox(
                 width: double.infinity,
-                height: 45,
+                height: 52,
 
                 child: ElevatedButton(
+
                   onPressed: () {
                     Navigator.pop(context);
                   },
 
                   style:
                       ElevatedButton.styleFrom(
-                    backgroundColor: primaryColor,
+
+                    backgroundColor:
+                        primaryColor,
+
+                    foregroundColor:
+                        Colors.white,
+
                     elevation: 0,
 
                     shape:
                         RoundedRectangleBorder(
                       borderRadius:
-                          BorderRadius.circular(10),
+                          BorderRadius.circular(
+                        15,
+                      ),
                     ),
                   ),
 
-                  child: const Text(
-                    "View Full Project",
+                  child:
+                      const Text(
+                    "Close",
                     style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight:
+                          FontWeight.bold,
                     ),
                   ),
                 ),
@@ -941,14 +1177,21 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     );
   }
 
+  // ============================================================
+  // DETAIL ROW
+  // ============================================================
+
   Widget _detailRow(
     IconData icon,
     String label,
     String value,
   ) {
+
     return Padding(
-      padding: const EdgeInsets.only(
-        bottom: 13,
+
+      padding:
+          const EdgeInsets.only(
+        bottom: 17,
       ),
 
       child: Row(
@@ -956,29 +1199,43 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
 
           Icon(
             icon,
-            size: 18,
+            size: 22,
             color: primaryColor,
           ),
 
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
 
           Text(
-            "$label: ",
 
-            style: const TextStyle(
-              fontSize: 10,
-              color: Color(0xFF7B858C),
+            "$label:",
+
+            style:
+                const TextStyle(
+
+              fontSize: 15,
+
+              color:
+                  Color(0xFF7A858B),
             ),
           ),
 
+          const SizedBox(width: 8),
+
           Expanded(
             child: Text(
+
               value,
 
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF263746),
+              style:
+                  const TextStyle(
+
+                fontSize: 15,
+
+                fontWeight:
+                    FontWeight.w600,
+
+                color:
+                    Color(0xFF263746),
               ),
             ),
           ),
@@ -987,41 +1244,470 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     );
   }
 
-  // ==============================================================
-  // ADD PROJECT
-  // ==============================================================
+  // ============================================================
+  // FILTER DIALOG
+  // ============================================================
 
-  void _showAddProjectMessage() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          "Add Project functionality will be connected next.",
+  void _showFilterDialog() {
+
+    showModalBottomSheet(
+
+      context: context,
+
+      backgroundColor: Colors.white,
+
+      shape:
+          const RoundedRectangleBorder(
+        borderRadius:
+            BorderRadius.vertical(
+          top: Radius.circular(25),
         ),
       ),
+
+      builder: (context) {
+
+        return Padding(
+
+          padding:
+              const EdgeInsets.all(25),
+
+          child: Column(
+
+            mainAxisSize:
+                MainAxisSize.min,
+
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+
+            children: [
+
+              const Text(
+                "Filter Projects",
+
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight:
+                      FontWeight.bold,
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              ...filters.map((filter) {
+
+                return RadioListTile<String>(
+
+                  value: filter,
+
+                  groupValue:
+                      selectedFilter,
+
+                  activeColor:
+                      primaryColor,
+
+                  title: Text(filter),
+
+                  onChanged: (value) {
+
+                    setState(() {
+                      selectedFilter =
+                          value!;
+                    });
+
+                    Navigator.pop(context);
+                  },
+                );
+              }),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ============================================================
+  // EMPTY STATE
+  // ============================================================
+
+  Widget _buildEmptyState() {
+
+    return Center(
+
+      child: Column(
+
+        mainAxisAlignment:
+            MainAxisAlignment.center,
+
+        children: [
+
+          Icon(
+            Icons.folder_open_outlined,
+            size: 75,
+            color:
+                primaryColor.withOpacity(.5),
+          ),
+
+          const SizedBox(height: 18),
+
+          const Text(
+
+            "No Projects Yet",
+
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight:
+                  FontWeight.bold,
+              color:
+                  Color(0xFF263746),
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          const Text(
+
+            "Create a project to see it here.",
+
+            style: TextStyle(
+              fontSize: 15,
+              color:
+                  Color(0xFF7A858C),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          ElevatedButton.icon(
+
+            onPressed: () {
+
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      const CreateProjectScreen(),
+                ),
+              );
+            },
+
+            style:
+                ElevatedButton.styleFrom(
+              backgroundColor:
+                  primaryColor,
+              foregroundColor:
+                  Colors.white,
+            ),
+
+            icon: const Icon(Icons.add),
+
+            label:
+                const Text(
+              "Create Project",
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // NO SEARCH RESULTS
+  // ============================================================
+
+  Widget _buildNoResults() {
+
+    return Center(
+
+      child: Column(
+
+        mainAxisAlignment:
+            MainAxisAlignment.center,
+
+        children: [
+
+          Icon(
+            Icons.search_off,
+            size: 60,
+            color:
+                Colors.grey.shade400,
+          ),
+
+          const SizedBox(height: 15),
+
+          const Text(
+
+            "No projects found",
+
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight:
+                  FontWeight.w600,
+            ),
+          ),
+
+          const SizedBox(height: 7),
+
+          Text(
+
+            "Try another search or filter.",
+
+            style: TextStyle(
+              color:
+                  Colors.grey.shade600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // BOTTOM NAVIGATION
+  // ============================================================
+
+  Widget _buildBottomNavigationBar() {
+
+    return BottomNavigationBar(
+
+      type:
+          BottomNavigationBarType.fixed,
+
+      currentIndex: 1,
+
+      backgroundColor:
+          Colors.white,
+
+      selectedItemColor:
+          primaryColor,
+
+      unselectedItemColor:
+          const Color(0xFF59646A),
+
+      selectedFontSize: 13,
+
+      unselectedFontSize: 13,
+
+      elevation: 15,
+
+      items: const [
+
+        BottomNavigationBarItem(
+          icon: Icon(
+            Icons.home_outlined,
+          ),
+          activeIcon: Icon(
+            Icons.home,
+          ),
+          label: "Home",
+        ),
+
+        BottomNavigationBarItem(
+          icon: Icon(
+            Icons.folder_outlined,
+          ),
+          activeIcon: Icon(
+            Icons.folder,
+          ),
+          label: "Projects",
+        ),
+
+        BottomNavigationBarItem(
+          icon: Icon(
+            Icons.map_outlined,
+          ),
+          activeIcon: Icon(
+            Icons.map,
+          ),
+          label: "Map",
+        ),
+
+        BottomNavigationBarItem(
+          icon: Icon(
+            Icons.person_outline,
+          ),
+          activeIcon: Icon(
+            Icons.person,
+          ),
+          label: "Profile",
+        ),
+      ],
+
+      onTap: (index) {
+
+        if (index == 0) {
+
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  const DashboardScreen(),
+            ),
+          );
+        }
+
+        // Projects = current page
+        else if (index == 1) {
+          // Already on Projects
+        }
+
+        // Map
+        else if (index == 2) {
+
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  const PlaceholderPage(
+                title: "Map",
+                icon: Icons.map,
+              ),
+            ),
+          );
+        }
+
+        // Profile
+        else if (index == 3) {
+
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  const PlaceholderPage(
+                title: "Profile",
+                icon: Icons.person,
+              ),
+            ),
+          );
+        }
+      },
     );
   }
 }
 
-// =================================================================
+// ================================================================
 // PROJECT MODEL
-// =================================================================
+// ================================================================
 
 class Project {
+
+  final String id;
+
   final String title;
+
   final String department;
+
+  final String category;
+
   final String status;
-  final int progress;
+
   final String budget;
+
   final String location;
+
   final String startDate;
 
   Project({
+
+    required this.id,
+
     required this.title,
+
     required this.department,
+
+    required this.category,
+
     required this.status,
-    required this.progress,
+
     required this.budget,
+
     required this.location,
+
     required this.startDate,
   });
+}
+
+// ================================================================
+// STATUS COLORS
+// ================================================================
+
+class StatusColors {
+
+  final Color text;
+
+  final Color background;
+
+  StatusColors({
+    required this.text,
+    required this.background,
+  });
+}
+
+// ================================================================
+// TEMPORARY MAP / PROFILE PAGE
+// ================================================================
+
+class PlaceholderPage extends StatelessWidget {
+
+  final String title;
+
+  final IconData icon;
+
+  const PlaceholderPage({
+    super.key,
+    required this.title,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+
+    return Scaffold(
+
+      backgroundColor:
+          const Color(0xFFF5F8FC),
+
+      appBar: AppBar(
+
+        backgroundColor:
+            const Color(0xFF087F78),
+
+        foregroundColor:
+            Colors.white,
+
+        title: Text(title),
+      ),
+
+      body: Center(
+
+        child: Column(
+
+          mainAxisAlignment:
+              MainAxisAlignment.center,
+
+          children: [
+
+            Icon(
+              icon,
+              size: 70,
+              color:
+                  const Color(0xFF087F78),
+            ),
+
+            const SizedBox(height: 15),
+
+            Text(
+              "$title Page",
+
+              style:
+                  const TextStyle(
+                fontSize: 24,
+                fontWeight:
+                    FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

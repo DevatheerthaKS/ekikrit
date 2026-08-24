@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "24931602437",
+    "project_id": "ekikrit-eb714",
+    "storage_bucket": "ekikrit-eb714.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:24931602437:android:1419996afdb46524f24c6c",
+        "android_client_info": {
+          "package_name": "com.example.ekikrith_hackthon"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCJlSozr-d9ExZ8sKaPDA6gEqYictUKr_k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'login_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -74,46 +76,78 @@ class _SignupScreenState extends State<SignupScreen> {
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+setState(() {
+  _isLoading = true;
+});
 
-    // ------------------------------------------------------------
-    // BACKEND REGISTRATION WILL BE CONNECTED HERE LATER.
-    // ------------------------------------------------------------
+try {
 
-    await Future.delayed(
-      const Duration(milliseconds: 800),
-    );
+  UserCredential userCredential =
+      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+    email: _emailController.text.trim(),
+    password: _passwordController.text.trim(),
+  );
 
-    if (!mounted) return;
+  await FirebaseFirestore.instance
+      .collection('users')
+      .doc(userCredential.user!.uid)
+      .set({
+    'name': _nameController.text.trim(),
+    'email': _emailController.text.trim(),
+    'department': _selectedDepartment,
+    'role': _selectedRole,
+    'createdAt': FieldValue.serverTimestamp(),
+  });
 
-    setState(() {
-      _isLoading = false;
-    });
+  setState(() {
+    _isLoading = false;
+  });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Account created successfully. Please sign in.',
-        ),
-      ),
-    );
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text("Account Created Successfully"),
+    ),
+  );
 
-    await Future.delayed(
-      const Duration(milliseconds: 700),
-    );
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (_) => const LoginScreen(),
+    ),
+  );
 
-    if (!mounted) return;
+} on FirebaseAuthException catch (e) {
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const LoginScreen(),
-      ),
-    );
+  setState(() {
+    _isLoading = false;
+  });
+
+  String message = "Registration Failed";
+
+  if (e.code == 'email-already-in-use') {
+    message = "Email already exists";
+  } else if (e.code == 'weak-password') {
+    message = "Password is too weak";
+  } else if (e.code == 'invalid-email') {
+    message = "Invalid email address";
   }
 
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(message)),
+  );
+}
+catch (e) {
+  setState(() {
+    _isLoading = false;
+  });
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(e.toString())),
+  );
+}
+
+// <-- THIS BRACE WAS MISSING
+}
   // ============================================================
   // GO TO SIGN IN
   // ============================================================

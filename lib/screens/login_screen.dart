@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dashboard_screen.dart';
+import 'signup_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -195,13 +197,27 @@ class _LoginScreenState extends State<LoginScreen> {
                     height: 56,
                     child: ElevatedButton(
 
-                      onPressed: () {
+                      onPressed: () async {
 
-  String email = emailController.text.trim();
-  String password = passwordController.text.trim();
+  if (emailController.text.trim().isEmpty ||
+      passwordController.text.trim().isEmpty) {
 
-  if (email == "admin@gov.in" &&
-      password == "admin123") {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Please enter email and password"),
+      ),
+    );
+    return;
+  }
+
+  try {
+
+    await FirebaseAuth.instance.signInWithEmailAndPassword(
+      email: emailController.text.trim(),
+      password: passwordController.text.trim(),
+    );
+
+    if (!mounted) return;
 
     Navigator.pushReplacement(
       context,
@@ -210,13 +226,41 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
 
-  } else {
+  } on FirebaseAuthException catch (e) {
+
+    String message = "Login Failed";
+
+    switch (e.code) {
+
+      case 'user-not-found':
+        message = "No user found with this email";
+        break;
+
+      case 'wrong-password':
+        message = "Incorrect password";
+        break;
+
+      case 'invalid-email':
+        message = "Invalid email address";
+        break;
+
+      case 'invalid-credential':
+        message = "Invalid email or password";
+        break;
+
+      case 'user-disabled':
+        message = "This account has been disabled";
+        break;
+    }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Invalid Email or Password"),
-        backgroundColor: Colors.red,
-      ),
+      SnackBar(content: Text(message)),
+    );
+
+  } catch (e) {
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(e.toString())),
     );
 
   }
@@ -291,52 +335,45 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   const SizedBox(height: 28),
 
-                  /// SSO Button
+const SizedBox(height: 20),
 
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
+Row(
+  mainAxisAlignment: MainAxisAlignment.center,
+  children: [
 
-                    child: OutlinedButton(
+    Text(
+      "Don't have an account? ",
+      style: TextStyle(
+        color: Colors.grey.shade700,
+        fontSize: 14,
+      ),
+    ),
 
-                      onPressed: () {},
+    GestureDetector(
+      onTap: () {
 
-                      style: OutlinedButton.styleFrom(
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const SignupScreen(),
+          ),
+        );
 
-                        side: const BorderSide(
-                          color: Color(0xff0F7C73),
-                          width: 1.4,
-                        ),
+      },
+      child: const Text(
+        "Sign Up",
+        style: TextStyle(
+          color: Color(0xff0F7C73),
+          fontWeight: FontWeight.bold,
+          fontSize: 14,
+        ),
+      ),
+    ),
 
-                        shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(15),
-                        ),
-                      ),
+  ],
+),
 
-                      child: const Row(
-                        mainAxisAlignment:
-                            MainAxisAlignment.center,
-                        children: [
-
-                          Icon(
-                            Icons.account_balance,
-                            color: Color(0xff0F7C73),
-                          ),
-
-                          SizedBox(width: 10),
-
-                          Text(
-                            "Login with Government SSO",
-                            style: TextStyle(
-                              color: Color(0xff0F7C73),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+const SizedBox(height: 28),
 
                   const SizedBox(height: 28),
 
