@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'create_project_screen.dart';
 import 'dashboard_screen.dart';
 import 'map_screen.dart';
+import 'profile_screen.dart';
 
 class ProjectsScreen extends StatefulWidget {
   const ProjectsScreen({super.key});
@@ -1566,18 +1567,13 @@ else if (index == 2) {
 
         // Profile
         else if (index == 3) {
-
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) =>
-                  const PlaceholderPage(
-                title: "Profile",
-                icon: Icons.person,
-              ),
-            ),
-          );
-        }
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (_) => const ProfileScreen(),
+    ),
+  );
+}
       },
     );
   }

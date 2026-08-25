@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'projects_screen.dart';
 import 'create_project_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'map_screen.dart';
+import 'profile_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -31,16 +33,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               "Projects",
               "Your projects will appear here.",
             ),
-            _buildPlaceholderPage(
-              Icons.notifications_none,
-              "Notifications",
-              "No new notifications.",
-            ),
-            _buildPlaceholderPage(
-              Icons.person_outline,
-              "Profile",
-              "Your profile information.",
-            ),
+            
           ],
         ),
       ),
@@ -643,221 +636,214 @@ Widget _buildStatistics() {
   // ============================================================
 
   Widget _buildUpcomingDeadlines() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
+  return StreamBuilder<QuerySnapshot>(
+    stream: FirebaseFirestore.instance
+        .collection("projects")
+        .snapshots(),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Center(
+          child: Padding(
+            padding: EdgeInsets.all(20),
+            child: CircularProgressIndicator(),
+          ),
+        );
+      }
 
-        borderRadius: BorderRadius.circular(12),
+      if (snapshot.hasError) {
+        return const Center(
+          child: Text("Unable to load projects"),
+        );
+      }
 
-        border: Border.all(
-          color: const Color(0xFFE0E5E9),
+      final projects = snapshot.data?.docs ?? [];
+
+      if (projects.isEmpty) {
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: const Color(0xFFE0E5E9),
+            ),
+          ),
+          child: const Center(
+            child: Text("No projects available"),
+          ),
+        );
+      }
+
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: const Color(0xFFE0E5E9),
+          ),
         ),
-      ),
+        child: Column(
+          children: List.generate(projects.length, (index) {
+            final data =
+                projects[index].data() as Map<String, dynamic>;
 
-      child: Column(
-        children: [
+            return Column(
+              children: [
+                _buildDeadlineItem(
+                  icon: Icons.construction_outlined,
+                  title: data["title"] ?? "Untitled Project",
+                  subtitle:
+                      data["department"] ?? "No Department",
+                ),
 
-          _buildDeadlineItem(
-            icon: Icons.event_note_outlined,
-            title: "Utility Survey Work",
-            subtitle: "Kizhakkambalam Road",
-            date: "24 Aug",
-            urgent: true,
-          ),
-
-          _buildDivider(),
-
-          _buildDeadlineItem(
-            icon: Icons.description_outlined,
-            title: "GIS Material Audit",
-            subtitle: "Municipal Project",
-            date: "26 Aug",
-            urgent: false,
-          ),
-
-          _buildDivider(),
-
-          _buildDeadlineItem(
-            icon: Icons.assignment_outlined,
-            title: "Tender Document Submission",
-            subtitle: "District Infrastructure Project",
-            date: "28 Aug",
-            urgent: false,
-          ),
-        ],
-      ),
-    );
-  }
+                if (index != projects.length - 1)
+                  _buildDivider(),
+              ],
+            );
+          }),
+        ),
+      );
+    },
+  );
+}
 
   Widget _buildDeadlineItem({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required String date,
-    required bool urgent,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 11,
-        vertical: 10,
-      ),
-
-      child: Row(
-        children: [
-
-          Container(
-            width: 31,
-            height: 31,
-
-            decoration: BoxDecoration(
-              color: urgent
-                  ? const Color(0xFFFFF1E8)
-                  : const Color(0xFFEAF3F7),
-
-              borderRadius: BorderRadius.circular(8),
-            ),
-
-            child: Icon(
-              icon,
-
-              color: urgent
-                  ? Colors.orange
-                  : Colors.blue,
-
-              size: 16,
-            ),
+  required IconData icon,
+  required String title,
+  required String subtitle,
+}) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(
+      horizontal: 11,
+      vertical: 10,
+    ),
+    child: Row(
+      children: [
+        Container(
+          width: 31,
+          height: 31,
+          decoration: BoxDecoration(
+            color: const Color(0xFFEAF3F7),
+            borderRadius: BorderRadius.circular(8),
           ),
-
-          const SizedBox(width: 9),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
-
-              children: [
-
-                Text(
-                  title,
-
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF263746),
-                  ),
-                ),
-
-                const SizedBox(height: 3),
-
-                Text(
-                  subtitle,
-
-                  style: const TextStyle(
-                    fontSize: 8,
-                    color: Color(0xFF77818A),
-                  ),
-                ),
-              ],
-            ),
+          child: Icon(
+            icon,
+            color: primaryColor,
+            size: 16,
           ),
+        ),
 
-          Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.end,
+        const SizedBox(width: 9),
 
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-
               Text(
-                date,
-
-                style: TextStyle(
-                  fontSize: 8.5,
+                title,
+                style: const TextStyle(
+                  fontSize: 10,
                   fontWeight: FontWeight.w600,
-                  color: urgent
-                      ? Colors.red
-                      : const Color(0xFF68747C),
+                  color: Color(0xFF263746),
                 ),
               ),
 
               const SizedBox(height: 3),
 
               Text(
-                urgent ? "Due soon" : "Upcoming",
-
-                style: TextStyle(
-                  fontSize: 7,
-
-                  color: urgent
-                      ? Colors.red
-                      : const Color(0xFF9299A0),
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 8,
+                  color: Color(0xFF77818A),
                 ),
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
   // ============================================================
   // QUICK ACTIONS
   // ============================================================
 
   Widget _buildQuickActions() {
-    return Container(
-      padding: const EdgeInsets.all(10),
-
-      decoration: BoxDecoration(
-        color: primaryColor,
-
-        borderRadius: BorderRadius.circular(13),
-      ),
-
-      child: Row(
-        children: [
-
-          Expanded(
-  child: InkWell(
-    onTap: () {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) =>
-              const CreateProjectScreen(),
-        ),
-      );
-    },
-    child: _buildQuickAction(
-      Icons.add_circle_outline,
-      "Add Project",
+  return Container(
+    padding: const EdgeInsets.all(10),
+    decoration: BoxDecoration(
+      color: primaryColor,
+      borderRadius: BorderRadius.circular(13),
     ),
-  ),
-),
+    child: Row(
+      children: [
 
-          Expanded(
+        // Add Project
+        Expanded(
+          child: InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const CreateProjectScreen(),
+                ),
+              );
+            },
+            child: _buildQuickAction(
+              Icons.add_circle_outline,
+              "Add Project",
+            ),
+          ),
+        ),
+
+        // View Map
+        Expanded(
+          child: InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const MapScreen(),
+                ),
+              );
+            },
             child: _buildQuickAction(
               Icons.map_outlined,
               "View Map",
             ),
           ),
+        ),
 
-          Expanded(
+        // Analytics
+        Expanded(
+          child: InkWell(
+            onTap: () {
+              // TODO: Analytics Screen
+            },
             child: _buildQuickAction(
               Icons.analytics_outlined,
               "Analytics",
             ),
           ),
+        ),
 
-          Expanded(
+        // Reports
+        Expanded(
+          child: InkWell(
+            onTap: () {
+              // TODO: Reports Screen
+            },
             child: _buildQuickAction(
               Icons.description_outlined,
               "Reports",
             ),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildQuickAction(
   IconData icon,
@@ -1084,44 +1070,7 @@ Widget _buildStatistics() {
 
           const SizedBox(width: 10),
 
-          const Expanded(
-            child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
-
-              children: [
-
-                Text(
-                  "Road Governance",
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF263746),
-                  ),
-                ),
-
-                SizedBox(height: 4),
-
-                Text(
-                  "Panchayath infrastructure project",
-                  style: TextStyle(
-                    fontSize: 7.5,
-                    color: Color(0xFF77818A),
-                  ),
-                ),
-
-                SizedBox(height: 6),
-
-                Text(
-                  "Fort Kochi • 72% completed",
-                  style: TextStyle(
-                    fontSize: 7.5,
-                    color: Color(0xFF68747C),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          
 
           const Icon(
             Icons.chevron_right,
@@ -1149,7 +1098,22 @@ Widget _buildStatistics() {
         builder: (_) => const ProjectsScreen(),
       ),
     );
-  } else {
+  } else if (index == 2) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const MapScreen(),
+      ),
+    );
+  }
+  else if (index == 3) {
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (_) => const ProfileScreen(),
+    ),
+  );
+} else {
     setState(() {
       _selectedIndex = index;
     });
@@ -1197,16 +1161,16 @@ Widget _buildStatistics() {
         ),
 
         BottomNavigationBarItem(
-          icon: Icon(
-            Icons.notifications_none,
-            size: 20,
-          ),
-          activeIcon: Icon(
-            Icons.notifications,
-            size: 20,
-          ),
-          label: "Alerts",
-        ),
+  icon: Icon(
+    Icons.map_outlined,
+    size: 20,
+  ),
+  activeIcon: Icon(
+    Icons.map,
+    size: 20,
+  ),
+  label: "Map",
+),
 
         BottomNavigationBarItem(
           icon: Icon(

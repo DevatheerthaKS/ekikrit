@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 
 import 'dashboard_screen.dart';
 import 'projects_screen.dart';
+import 'profile_screen.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -763,10 +764,13 @@ class _MapScreenState extends State<MapScreen> {
 
         // Profile
         else if (index == 3) {
-          _showMessage(
-            "Profile will be connected soon.",
-          );
-        }
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (_) => const ProfileScreen(),
+    ),
+  );
+}
       },
     );
   }
