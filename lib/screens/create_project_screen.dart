@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'projects_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../services/duplicate_detection_service.dart';
 
 class CreateProjectScreen extends StatefulWidget {
   const CreateProjectScreen({super.key});
@@ -47,7 +48,9 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
     super.dispose();
   }
 
-  Future<void> _selectDate(TextEditingController controller) async {
+  Future<void> _selectDate(
+      TextEditingController controller) async {
+
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
@@ -75,8 +78,379 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
     "Street Lighting",
   ];
 
+  // ============================================================
+  // AI DUPLICATE CHECK
+  // ============================================================
+
+  Future<void> _createProject() async {
+
+    // ----------------------------------------------------------
+    // VALIDATION
+    // ----------------------------------------------------------
+
+    if (projectNameController.text.trim().isEmpty ||
+        selectedDepartment == null ||
+        selectedCategory == null ||
+        wardController.text.trim().isEmpty ||
+        budgetController.text.trim().isEmpty) {
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Please fill all required fields",
+          ),
+        ),
+      );
+
+      return;
+    }
+
+    // ----------------------------------------------------------
+    // SHOW LOADING
+    // ----------------------------------------------------------
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+
+        return const AlertDialog(
+          content: Row(
+            children: [
+
+              CircularProgressIndicator(),
+
+              SizedBox(width: 20),
+
+              Expanded(
+                child: Text(
+                  "Checking for duplicate projects...",
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    try {
+
+      // --------------------------------------------------------
+      // GET EXISTING PROJECTS FROM FIRESTORE
+      // --------------------------------------------------------
+
+      final QuerySnapshot snapshot =
+          await FirebaseFirestore.instance
+              .collection("projects")
+              .get();
+
+      final List<Map<String, dynamic>>
+          existingProjects = [];
+
+      for (final doc in snapshot.docs) {
+
+        final data =
+            doc.data() as Map<String, dynamic>;
+
+        existingProjects.add({
+
+          "title":
+              data["title"] ?? "",
+
+          "description":
+              data["description"] ?? "",
+
+          "category":
+              data["category"] ?? "",
+
+          "department":
+              data["department"] ?? "",
+
+          "location":
+              data["location"] ?? "",
+        });
+      }
+
+      // --------------------------------------------------------
+      // NEW PROJECT DETAILS
+      // --------------------------------------------------------
+
+      final String projectTitle =
+          projectNameController.text.trim();
+
+      final String description =
+          descriptionController.text.trim();
+
+      final String department =
+          selectedDepartment!;
+
+      final String category =
+          selectedCategory!;
+
+      final String location =
+          "Ward ${wardController.text.trim()}";
+
+      // --------------------------------------------------------
+      // CALL AI
+      // --------------------------------------------------------
+
+      final result =
+          await DuplicateDetectionService.checkDuplicate(
+
+        title: projectTitle,
+
+        description: description,
+
+        category: category,
+
+        department: department,
+
+        location: location,
+
+        existingProjects:
+            existingProjects,
+      );
+
+      // --------------------------------------------------------
+      // CLOSE LOADING
+      // --------------------------------------------------------
+
+      if (!mounted) return;
+
+      Navigator.pop(context);
+
+      // --------------------------------------------------------
+      // READ AI RESULT
+      // --------------------------------------------------------
+
+      final bool isDuplicate =
+          result["is_duplicate"] ?? false;
+
+      final double percentage =
+          (result["percentage"] ?? 0).toDouble();
+
+      final String message =
+          result["message"] ?? "";
+
+      final dynamic bestMatch =
+          result["best_match"];
+
+      // --------------------------------------------------------
+      // DUPLICATE FOUND
+      // --------------------------------------------------------
+
+      if (isDuplicate) {
+
+        final String matchingProject =
+            bestMatch != null
+                ? bestMatch["title"] ?? "Unknown project"
+                : "Unknown project";
+
+        final bool? createAnyway =
+            await showDialog<bool>(
+          context: context,
+
+          builder: (context) {
+
+            return AlertDialog(
+
+              title: const Row(
+                children: [
+
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.orange,
+                  ),
+
+                  SizedBox(width: 10),
+
+                  Expanded(
+                    child: Text(
+                      "Possible Duplicate",
+                    ),
+                  ),
+                ],
+              ),
+
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+
+                children: [
+
+                  Text(
+                    message,
+                    style: const TextStyle(
+                      fontSize: 16,
+                    ),
+                  ),
+
+                  const SizedBox(height: 15),
+
+                  Text(
+                    "Similarity: "
+                    "${percentage.toStringAsFixed(1)}%",
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 17,
+                    ),
+                  ),
+
+                  const SizedBox(height: 15),
+
+                  const Text(
+                    "Similar existing project:",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+
+                  const SizedBox(height: 6),
+
+                  Text(
+                    matchingProject,
+                  ),
+                ],
+              ),
+
+              actions: [
+
+                TextButton(
+                  onPressed: () {
+
+                    Navigator.pop(
+                      context,
+                      false,
+                    );
+                  },
+
+                  child: const Text(
+                    "Cancel",
+                  ),
+                ),
+
+                ElevatedButton(
+                  onPressed: () {
+
+                    Navigator.pop(
+                      context,
+                      true,
+                    );
+                  },
+
+                  child: const Text(
+                    "Create Anyway",
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+
+        // ------------------------------------------------------
+        // USER CANCELLED
+        // ------------------------------------------------------
+
+        if (createAnyway != true) {
+          return;
+        }
+      }
+
+      // --------------------------------------------------------
+      // SAVE PROJECT
+      // --------------------------------------------------------
+
+      await FirebaseFirestore.instance
+          .collection("projects")
+          .add({
+
+        "title":
+            projectTitle,
+
+        "department":
+            department,
+
+        "category":
+            category,
+
+        "status":
+            "Ongoing",
+
+        "budget":
+            "₹${budgetController.text.trim()}",
+
+        "location":
+            location,
+
+        "ward":
+            wardController.text.trim(),
+
+        "contractor":
+            contractorController.text.trim(),
+
+        "description":
+            description,
+
+        "startDate":
+            startDateController.text.trim(),
+
+        "endDate":
+            endDateController.text.trim(),
+
+        // AI information
+        "duplicateChecked":
+            true,
+
+        "duplicateScore":
+            percentage,
+
+        "createdAt":
+            FieldValue.serverTimestamp(),
+      });
+
+      // --------------------------------------------------------
+      // SUCCESS
+      // --------------------------------------------------------
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Project Created Successfully",
+          ),
+        ),
+      );
+
+      Navigator.pop(context);
+
+    } catch (e) {
+
+      // --------------------------------------------------------
+      // ERROR
+      // --------------------------------------------------------
+
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            "AI duplicate check failed: $e",
+          ),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
 
       backgroundColor: const Color(0xffF4F7FB),
@@ -99,365 +473,9 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
         child: Column(
           children: [
 
-            //----------------------------------------------------
+            // ==================================================
             // BASIC INFORMATION
-            //----------------------------------------------------
-
-            Card(
-              elevation: 2,
-
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(22),
-              ),
-
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-
-                  children: [
-
-                    Row(
-                      children: [
-
-                        Container(
-                          padding: const EdgeInsets.all(8),
-
-                          decoration: BoxDecoration(
-                            color: Colors.teal.withOpacity(.1),
-                            borderRadius:
-                                BorderRadius.circular(10),
-                          ),
-
-                          child: const Icon(
-                            Icons.info_outline,
-                            color: Color(0xff0F7C73),
-                          ),
-                        ),
-
-                        const SizedBox(width: 12),
-
-                        const Text(
-                          "Basic Information",
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 28),
-
-                    //------------------------------------------------
-                    // Project Name
-                    //------------------------------------------------
-
-                    const Text(
-                      "Project Name",
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                      ),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    TextField(
-                      controller: projectNameController,
-
-                      decoration: InputDecoration(
-                        hintText:
-                            "Enter formal project title",
-
-                        filled: true,
-
-                        fillColor:
-                            const Color(0xffF7F8FC),
-
-                        contentPadding:
-                            const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 18,
-                        ),
-
-                        border: OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(18),
-
-                          borderSide: BorderSide(
-                            color: Colors.grey.shade300,
-                          ),
-                        ),
-
-                        enabledBorder:
-                            OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(18),
-
-                          borderSide: BorderSide(
-                            color: Colors.grey.shade300,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 22),
-
-                    //------------------------------------------------
-                    // Department
-                    //------------------------------------------------
-
-                    const Text(
-                      "Department",
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                      ),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    DropdownButtonFormField<String>(
-                      value: selectedDepartment,
-
-                      decoration: InputDecoration(
-                        filled: true,
-
-                        fillColor:
-                            const Color(0xffF7F8FC),
-
-                        contentPadding:
-                            const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 18,
-                        ),
-
-                        border: OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(18),
-
-                          borderSide: BorderSide(
-                            color: Colors.grey.shade300,
-                          ),
-                        ),
-
-                        enabledBorder:
-                            OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(18),
-
-                          borderSide: BorderSide(
-                            color: Colors.grey.shade300,
-                          ),
-                        ),
-                      ),
-
-                      hint:
-                          const Text("Select Department"),
-
-                      items: departments.map((e) {
-                        return DropdownMenuItem(
-                          value: e,
-                          child: Text(e),
-                        );
-                      }).toList(),
-
-                      onChanged: (value) {
-                        setState(() {
-                          selectedDepartment = value;
-                        });
-                      },
-                    ),
-
-                    const SizedBox(height: 22),
-
-                    //------------------------------------------------
-                    // Category
-                    //------------------------------------------------
-
-                    const Text(
-                      "Category",
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                      ),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    DropdownButtonFormField<String>(
-                      value: selectedCategory,
-
-                      decoration: InputDecoration(
-                        filled: true,
-
-                        fillColor:
-                            const Color(0xffF7F8FC),
-
-                        contentPadding:
-                            const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 18,
-                        ),
-
-                        border: OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(18),
-
-                          borderSide: BorderSide(
-                            color: Colors.grey.shade300,
-                          ),
-                        ),
-
-                        enabledBorder:
-                            OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(18),
-
-                          borderSide: BorderSide(
-                            color: Colors.grey.shade300,
-                          ),
-                        ),
-                      ),
-
-                      hint:
-                          const Text("Select Category"),
-
-                      items: categories.map((e) {
-                        return DropdownMenuItem(
-                          value: e,
-                          child: Text(e),
-                        );
-                      }).toList(),
-
-                      onChanged: (value) {
-                        setState(() {
-                          selectedCategory = value;
-                        });
-                      },
-                    ),
-
-                    const SizedBox(height: 22),
-
-                    //------------------------------------------------
-                    // Ward Number
-                    //------------------------------------------------
-
-                    const Text(
-                      "Ward Number",
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                      ),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    TextField(
-                      controller: wardController,
-                      keyboardType: TextInputType.number,
-
-                      decoration: InputDecoration(
-                        hintText: "e.g. 12",
-
-                        filled: true,
-
-                        fillColor:
-                            const Color(0xffF7F8FC),
-
-                        contentPadding:
-                            const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 18,
-                        ),
-
-                        border: OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(18),
-
-                          borderSide: BorderSide(
-                            color: Colors.grey.shade300,
-                          ),
-                        ),
-
-                        enabledBorder:
-                            OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(18),
-
-                          borderSide: BorderSide(
-                            color: Colors.grey.shade300,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 22),
-
-                    //------------------------------------------------
-                    // Contractor
-                    //------------------------------------------------
-
-                    const Text(
-                      "Contractor Name",
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                      ),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    TextField(
-                      controller: contractorController,
-
-                      decoration: InputDecoration(
-                        hintText:
-                            "Assigned contractor firm",
-
-                        filled: true,
-
-                        fillColor:
-                            const Color(0xffF7F8FC),
-
-                        contentPadding:
-                            const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 18,
-                        ),
-
-                        border: OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(18),
-
-                          borderSide: BorderSide(
-                            color: Colors.grey.shade300,
-                          ),
-                        ),
-
-                        enabledBorder:
-                            OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(18),
-
-                          borderSide: BorderSide(
-                            color: Colors.grey.shade300,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 18),
-
-            //----------------------------------------------------
-            // LOCATION & DETAILS
-            //----------------------------------------------------
+            // ==================================================
 
             Card(
               elevation: 2,
@@ -479,17 +497,323 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
                       children: [
 
                         Container(
-                          padding: const EdgeInsets.all(8),
+                          padding:
+                              const EdgeInsets.all(8),
 
                           decoration: BoxDecoration(
-                            color: Colors.teal.withOpacity(.1),
+                            color:
+                                Colors.teal.withOpacity(.1),
+
+                            borderRadius:
+                                BorderRadius.circular(10),
+                          ),
+
+                          child: const Icon(
+                            Icons.info_outline,
+                            color:
+                                Color(0xff0F7C73),
+                          ),
+                        ),
+
+                        const SizedBox(width: 12),
+
+                        const Text(
+                          "Basic Information",
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight:
+                                FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 28),
+
+                    const Text(
+                      "Project Name",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    TextField(
+                      controller:
+                          projectNameController,
+
+                      decoration: InputDecoration(
+                        hintText:
+                            "Enter formal project title",
+
+                        filled: true,
+
+                        fillColor:
+                            const Color(0xffF7F8FC),
+
+                        contentPadding:
+                            const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 18,
+                        ),
+
+                        border:
+                            OutlineInputBorder(
+                          borderRadius:
+                              BorderRadius.circular(18),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 22),
+
+                    const Text(
+                      "Department",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    DropdownButtonFormField<String>(
+                      value: selectedDepartment,
+
+                      decoration:
+                          InputDecoration(
+                        filled: true,
+
+                        fillColor:
+                            const Color(0xffF7F8FC),
+
+                        contentPadding:
+                            const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 18,
+                        ),
+
+                        border:
+                            OutlineInputBorder(
+                          borderRadius:
+                              BorderRadius.circular(18),
+                        ),
+                      ),
+
+                      hint:
+                          const Text(
+                        "Select Department",
+                      ),
+
+                      items:
+                          departments.map((e) {
+
+                        return DropdownMenuItem(
+                          value: e,
+                          child: Text(e),
+                        );
+
+                      }).toList(),
+
+                      onChanged: (value) {
+
+                        setState(() {
+                          selectedDepartment =
+                              value;
+                        });
+                      },
+                    ),
+
+                    const SizedBox(height: 22),
+
+                    const Text(
+                      "Category",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    DropdownButtonFormField<String>(
+                      value: selectedCategory,
+
+                      decoration:
+                          InputDecoration(
+                        filled: true,
+
+                        fillColor:
+                            const Color(0xffF7F8FC),
+
+                        contentPadding:
+                            const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 18,
+                        ),
+
+                        border:
+                            OutlineInputBorder(
+                          borderRadius:
+                              BorderRadius.circular(18),
+                        ),
+                      ),
+
+                      hint:
+                          const Text(
+                        "Select Category",
+                      ),
+
+                      items:
+                          categories.map((e) {
+
+                        return DropdownMenuItem(
+                          value: e,
+                          child: Text(e),
+                        );
+
+                      }).toList(),
+
+                      onChanged: (value) {
+
+                        setState(() {
+                          selectedCategory =
+                              value;
+                        });
+                      },
+                    ),
+
+                    const SizedBox(height: 22),
+
+                    const Text(
+                      "Ward Number",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    TextField(
+                      controller:
+                          wardController,
+
+                      keyboardType:
+                          TextInputType.number,
+
+                      decoration:
+                          InputDecoration(
+                        hintText: "e.g. 12",
+
+                        filled: true,
+
+                        fillColor:
+                            const Color(0xffF7F8FC),
+
+                        contentPadding:
+                            const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 18,
+                        ),
+
+                        border:
+                            OutlineInputBorder(
+                          borderRadius:
+                              BorderRadius.circular(18),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 22),
+
+                    const Text(
+                      "Contractor Name",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    TextField(
+                      controller:
+                          contractorController,
+
+                      decoration:
+                          InputDecoration(
+                        hintText:
+                            "Assigned contractor firm",
+
+                        filled: true,
+
+                        fillColor:
+                            const Color(0xffF7F8FC),
+
+                        contentPadding:
+                            const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 18,
+                        ),
+
+                        border:
+                            OutlineInputBorder(
+                          borderRadius:
+                              BorderRadius.circular(18),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 18),
+
+            // ==================================================
+            // LOCATION & DETAILS
+            // ==================================================
+
+            Card(
+              elevation: 2,
+
+              shape: RoundedRectangleBorder(
+                borderRadius:
+                    BorderRadius.circular(22),
+              ),
+
+              child: Padding(
+                padding:
+                    const EdgeInsets.all(20),
+
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+
+                  children: [
+
+                    Row(
+                      children: [
+
+                        Container(
+                          padding:
+                              const EdgeInsets.all(8),
+
+                          decoration: BoxDecoration(
+                            color:
+                                Colors.teal.withOpacity(.1),
+
                             borderRadius:
                                 BorderRadius.circular(10),
                           ),
 
                           child: const Icon(
                             Icons.location_on_outlined,
-                            color: Color(0xff0F7C73),
+                            color:
+                                Color(0xff0F7C73),
                           ),
                         ),
 
@@ -499,7 +823,8 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
                           "Location & Details",
                           style: TextStyle(
                             fontSize: 28,
-                            fontWeight: FontWeight.bold,
+                            fontWeight:
+                                FontWeight.bold,
                           ),
                         ),
                       ],
@@ -507,21 +832,20 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
 
                     const SizedBox(height: 25),
 
-                    //------------------------------------------------
-                    // Map
-                    //------------------------------------------------
-
                     Container(
                       height: 220,
                       width: double.infinity,
 
-                      decoration: BoxDecoration(
+                      decoration:
+                          BoxDecoration(
                         borderRadius:
                             BorderRadius.circular(20),
 
-                        color: Colors.grey.shade300,
+                        color:
+                            Colors.grey.shade300,
 
-                        image: const DecorationImage(
+                        image:
+                            const DecorationImage(
                           image: NetworkImage(
                             "https://maps.gstatic.com/tactile/basepage/pegman_sherlock.png",
                           ),
@@ -532,12 +856,14 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
                       ),
 
                       child: Container(
-                        decoration: BoxDecoration(
+                        decoration:
+                            BoxDecoration(
                           borderRadius:
                               BorderRadius.circular(20),
 
                           color:
-                              Colors.black.withOpacity(.18),
+                              Colors.black
+                                  .withOpacity(.18),
                         ),
 
                         child: const Center(
@@ -566,8 +892,11 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
                               Text(
                                 "Select Location on Map",
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color:
+                                      Colors.white,
+
                                   fontSize: 18,
+
                                   fontWeight:
                                       FontWeight.bold,
                                 ),
@@ -580,14 +909,11 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
 
                     const SizedBox(height: 24),
 
-                    //------------------------------------------------
-                    // Project Description
-                    //------------------------------------------------
-
                     const Text(
                       "Project Description",
                       style: TextStyle(
-                        fontWeight: FontWeight.w600,
+                        fontWeight:
+                            FontWeight.w600,
                         fontSize: 16,
                       ),
                     ),
@@ -600,7 +926,8 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
 
                       maxLines: 5,
 
-                      decoration: InputDecoration(
+                      decoration:
+                          InputDecoration(
                         hintText:
                             "Briefly describe project scope,\ngoals, and target outcomes...",
 
@@ -612,23 +939,10 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
                         contentPadding:
                             const EdgeInsets.all(18),
 
-                        border: OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(18),
-
-                          borderSide: BorderSide(
-                            color: Colors.grey.shade300,
-                          ),
-                        ),
-
-                        enabledBorder:
+                        border:
                             OutlineInputBorder(
                           borderRadius:
                               BorderRadius.circular(18),
-
-                          borderSide: BorderSide(
-                            color: Colors.grey.shade300,
-                          ),
                         ),
                       ),
                     ),
@@ -639,19 +953,21 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
 
             const SizedBox(height: 18),
 
-            //----------------------------------------------------
+            // ==================================================
             // TIMELINE & BUDGET
-            //----------------------------------------------------
+            // ==================================================
 
             Card(
               elevation: 2,
 
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(22),
+                borderRadius:
+                    BorderRadius.circular(22),
               ),
 
               child: Padding(
-                padding: const EdgeInsets.all(20),
+                padding:
+                    const EdgeInsets.all(20),
 
                 child: Column(
                   crossAxisAlignment:
@@ -663,17 +979,22 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
                       children: [
 
                         Container(
-                          padding: const EdgeInsets.all(8),
+                          padding:
+                              const EdgeInsets.all(8),
 
                           decoration: BoxDecoration(
-                            color: Colors.teal.withOpacity(.1),
+                            color:
+                                Colors.teal.withOpacity(.1),
+
                             borderRadius:
                                 BorderRadius.circular(10),
                           ),
 
                           child: const Icon(
-                            Icons.account_balance_wallet_outlined,
-                            color: Color(0xff0F7C73),
+                            Icons
+                                .account_balance_wallet_outlined,
+                            color:
+                                Color(0xff0F7C73),
                           ),
                         ),
 
@@ -683,7 +1004,8 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
                           "Timeline & Budget",
                           style: TextStyle(
                             fontSize: 28,
-                            fontWeight: FontWeight.bold,
+                            fontWeight:
+                                FontWeight.bold,
                           ),
                         ),
                       ],
@@ -691,29 +1013,30 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
 
                     const SizedBox(height: 28),
 
-                    //------------------------------------------------
-                    // Budget
-                    //------------------------------------------------
-
                     const Text(
                       "Total Budget (₹)",
                       style: TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                        fontWeight:
+                            FontWeight.w600,
                       ),
                     ),
 
                     const SizedBox(height: 10),
 
                     TextField(
-                      controller: budgetController,
+                      controller:
+                          budgetController,
+
                       keyboardType:
                           TextInputType.number,
 
-                      decoration: InputDecoration(
+                      decoration:
+                          InputDecoration(
                         prefixIcon:
                             const Icon(
-                                Icons.currency_rupee),
+                          Icons.currency_rupee,
+                        ),
 
                         hintText: "0.00",
 
@@ -722,37 +1045,15 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
                         fillColor:
                             const Color(0xffF7F8FC),
 
-                        contentPadding:
-                            const EdgeInsets.symmetric(
-                          vertical: 18,
-                        ),
-
-                        border: OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(18),
-
-                          borderSide: BorderSide(
-                            color: Colors.grey.shade300,
-                          ),
-                        ),
-
-                        enabledBorder:
+                        border:
                             OutlineInputBorder(
                           borderRadius:
                               BorderRadius.circular(18),
-
-                          borderSide: BorderSide(
-                            color: Colors.grey.shade300,
-                          ),
                         ),
                       ),
                     ),
 
                     const SizedBox(height: 24),
-
-                    //------------------------------------------------
-                    // Start Date & End Date
-                    //------------------------------------------------
 
                     Row(
                       children: [
@@ -783,42 +1084,31 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
 
                                 onTap: () =>
                                     _selectDate(
-                                        startDateController),
+                                  startDateController,
+                                ),
 
                                 decoration:
                                     InputDecoration(
-
                                   hintText:
                                       "mm/dd/yyyy",
 
                                   suffixIcon:
                                       const Icon(
-                                          Icons.calendar_today),
+                                    Icons.calendar_today,
+                                  ),
 
                                   filled: true,
 
                                   fillColor:
                                       const Color(
-                                          0xffF7F8FC),
+                                    0xffF7F8FC,
+                                  ),
 
                                   border:
                                       OutlineInputBorder(
                                     borderRadius:
                                         BorderRadius
                                             .circular(18),
-                                  ),
-
-                                  enabledBorder:
-                                      OutlineInputBorder(
-                                    borderRadius:
-                                        BorderRadius
-                                            .circular(18),
-
-                                    borderSide:
-                                        BorderSide(
-                                      color: Colors
-                                          .grey.shade300,
-                                    ),
                                   ),
                                 ),
                               ),
@@ -854,42 +1144,31 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
 
                                 onTap: () =>
                                     _selectDate(
-                                        endDateController),
+                                  endDateController,
+                                ),
 
                                 decoration:
                                     InputDecoration(
-
                                   hintText:
                                       "mm/dd/yyyy",
 
                                   suffixIcon:
                                       const Icon(
-                                          Icons.calendar_today),
+                                    Icons.calendar_today,
+                                  ),
 
                                   filled: true,
 
                                   fillColor:
                                       const Color(
-                                          0xffF7F8FC),
+                                    0xffF7F8FC,
+                                  ),
 
                                   border:
                                       OutlineInputBorder(
                                     borderRadius:
                                         BorderRadius
                                             .circular(18),
-                                  ),
-
-                                  enabledBorder:
-                                      OutlineInputBorder(
-                                    borderRadius:
-                                        BorderRadius
-                                            .circular(18),
-
-                                    borderSide:
-                                        BorderSide(
-                                      color: Colors
-                                          .grey.shade300,
-                                    ),
                                   ),
                                 ),
                               ),
@@ -905,9 +1184,9 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
 
             const SizedBox(height: 18),
 
-            //----------------------------------------------------
+            // ==================================================
             // CREATE PROJECT BUTTON
-            //----------------------------------------------------
+            // ==================================================
 
             SizedBox(
               width: double.infinity,
@@ -915,76 +1194,22 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
 
               child: ElevatedButton.icon(
 
-                style: ElevatedButton.styleFrom(
+                style:
+                    ElevatedButton.styleFrom(
                   backgroundColor:
                       const Color(0xff0F7C73),
 
                   foregroundColor:
                       Colors.white,
 
-                  shape: RoundedRectangleBorder(
+                  shape:
+                      RoundedRectangleBorder(
                     borderRadius:
                         BorderRadius.circular(16),
                   ),
                 ),
 
-                onPressed: () async {
-
-                  if (projectNameController.text.isEmpty ||
-                      selectedDepartment == null ||
-                      selectedCategory == null ||
-                      wardController.text.isEmpty ||
-                      budgetController.text.isEmpty) {
-
-                    ScaffoldMessenger.of(context)
-                        .showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          "Please fill all required fields",
-                        ),
-                      ),
-                    );
-
-                    return;
-                  }
-
-                  await FirebaseFirestore.instance
-                      .collection("projects")
-                      .add({
-
-                    "title":
-                        projectNameController.text,
-
-                    "department":
-                        selectedDepartment,
-
-                    "category":
-                        selectedCategory,
-
-                    "status":
-                        "Ongoing",
-
-                    "budget":
-                        "₹${budgetController.text}",
-
-                    "location":
-                        "Ward ${wardController.text}",
-
-                    "startDate":
-                        startDateController.text,
-                  });
-
-                  ScaffoldMessenger.of(context)
-                      .showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        "Project Created Successfully",
-                      ),
-                    ),
-                  );
-
-                  Navigator.pop(context);
-                },
+                onPressed: _createProject,
 
                 icon: const Icon(
                   Icons.check_circle,
@@ -995,7 +1220,8 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
 
                   style: TextStyle(
                     fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                    fontWeight:
+                        FontWeight.bold,
                   ),
                 ),
               ),
